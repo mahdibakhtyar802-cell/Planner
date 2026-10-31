@@ -1,0 +1,117 @@
+{
+ "id": "./",
+ "name": "برنامه‌ریز درس و کار",
+ "short_name": "برنامه‌ریز",
+ "description": "برنامه‌ریز روزانه، هفتگی و ترم با چک‌لیست، پلنر مطالعه با مرور فاصله‌دار، هدف‌ها، عادت‌ها، تایمر تمرکز و یادآور؛ آفلاین و روی همین دستگاه.",
+ "lang": "fa",
+ "dir": "rtl",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#EEF2F1",
+ "theme_color": "#EEF2F1",
+ "categories": [
+  "productivity",
+  "education"
+ ],
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/maskable-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "maskable"
+  },
+  {
+   "src": "icons/maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "کار جدید",
+   "short_name": "کار جدید",
+   "url": "./#new",
+   "icons": [
+    {
+     "src": "icons/sc-new.png",
+     "sizes": "96x96",
+     "type": "image/png"
+    }
+   ]
+  },
+  {
+   "name": "این هفته",
+   "short_name": "هفته",
+   "url": "./#week",
+   "icons": [
+    {
+     "src": "icons/sc-week.png",
+     "sizes": "96x96",
+     "type": "image/png"
+    }
+   ]
+  },
+  {
+   "name": "پلنر مطالعه",
+   "short_name": "مطالعه",
+   "url": "./#study",
+   "icons": [
+    {
+     "src": "icons/sc-study.png",
+     "sizes": "96x96",
+     "type": "image/png"
+    }
+   ]
+  },
+  {
+   "name": "ترم و امتحان‌ها",
+   "short_name": "ترم",
+   "url": "./#term",
+   "icons": [
+    {
+     "src": "icons/sc-term.png",
+     "sizes": "96x96",
+     "type": "image/png"
+    }
+   ]
+  }
+ ],
+ "screenshots": [
+  {
+   "src": "screens/wide.png",
+   "sizes": "1280x800",
+   "type": "image/png",
+   "form_factor": "wide",
+   "label": "نمای روز با برنامه‌ی ساعتی، تایمر تمرکز و عادت‌ها"
+  },
+  {
+   "src": "screens/narrow-day.png",
+   "sizes": "390x844",
+   "type": "image/png",
+   "form_factor": "narrow",
+   "label": "کارهای امروز"
+  },
+  {
+   "src": "screens/narrow-term.png",
+   "sizes": "390x844",
+   "type": "image/png",
+   "form_factor": "narrow",
+   "label": "برنامه‌ی ترم و امتحان‌ها"
+  }
+ ]
+}
