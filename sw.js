@@ -1,6 +1,6 @@
 /* برنامه‌ریز درس و کار — service worker */
-const VERSION = 'planner-4e4c6c855c';
-const ASSETS = ["./", "index.html", "manifest.webmanifest", "fonts/lalezar-arabic-400-normal.woff2", "fonts/lalezar-latin-400-normal.woff2", "fonts/vazirmatn-arabic-wght-normal.woff2", "fonts/vazirmatn-latin-wght-normal.woff2", "icons/apple-touch-icon.png", "icons/badge-96.png", "icons/favicon-32.png", "icons/favicon-64.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-192.png", "icons/maskable-512.png", "icons/sc-new.png", "icons/sc-study.png", "icons/sc-term.png", "icons/sc-week.png"];
+const VERSION = 'planner-82ecbb0625';
+const ASSETS = ["./", "index.html", "manifest.webmanifest", "config.js", "vendor/supabase.js", "fonts/LICENSE.txt", "fonts/lalezar-arabic-400-normal.woff2", "fonts/lalezar-latin-400-normal.woff2", "fonts/vazirmatn-arabic-wght-normal.woff2", "fonts/vazirmatn-latin-wght-normal.woff2", "icons/apple-touch-icon.png", "icons/badge-96.png", "icons/favicon-32.png", "icons/favicon-64.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-192.png", "icons/maskable-512.png", "icons/sc-new.png", "icons/sc-study.png", "icons/sc-term.png", "icons/sc-week.png"];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(ASSETS.map(u => new Request(u, {cache: 'reload'})))));
 });

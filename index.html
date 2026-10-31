@@ -408,8 +408,13 @@ input.lined:focus{outline:none;border-color:var(--accent)}
 .updbar{position:fixed;z-index:70;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:calc(16px + env(safe-area-inset-right,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:8px 10px 8px 8px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
 .updbar span{padding-inline-start:6px}
 .dlg.welcome .body{gap:14px}
+.syncbtn.s-ok{color:var(--ok)}.syncbtn.s-error{color:var(--danger);border-color:var(--danger)}.syncbtn.s-offline{color:var(--muted)}.syncbtn.s-busy{color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}
+.btn.choice{flex-direction:column;align-items:flex-start;text-align:start;gap:2px;padding:10px 14px}
+.btn.choice small{font-weight:400;opacity:.85}
 @media (display-mode: standalone){.brand h1{user-select:none}}
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -530,7 +535,7 @@ const dirty=new Set();let saveT=null;const chain={};let settingsSaved=false;
 const ref=k=>S.db.collection('data/users/'+S.uid).doc(k);
 function markDirty(k){dirty.add(k);if(!settingsSaved)dirty.add('settings');clearTimeout(saveT);saveT=setTimeout(flush,450)}
 function flush(){clearTimeout(saveT);const keys=[...dirty];dirty.clear();
-  for(const k of keys){const data=k==='settings'?S.settings:(S.D[k]||S.B[k]);if(!data)continue;const snap=clone(data);lsSet(k,snap);if(k==='settings')settingsSaved=true;
+  for(const k of keys){const data=k==='settings'?S.settings:(S.D[k]||S.B[k]);if(!data)continue;const snap=clone(data);lsSet(k,snap);syncMark(k);if(k==='settings')settingsSaved=true;
     if(S.mode==='db'){chain[k]=(chain[k]||Promise.resolve()).then(()=>ref(k).set(snap)).catch(e=>{toast(e&&e.code==='quota_exceeded'?'فضای ذخیره پر شده؛ چند هفته‌ی قدیمی را پاک کنید.':'ذخیره نشد؛ دوباره امتحان می‌کنم.');if(e&&e.code!=='quota_exceeded'&&e.code!=='invalid_argument'){dirty.add(k);saveT=setTimeout(flush,4000)}})}}}
 window.addEventListener('pagehide',()=>{if(dirty.size)flush()});
 const markL=b=>{Object.defineProperty(b,'__l',{enumerable:false,value:1,configurable:true});return b};
@@ -585,14 +590,15 @@ function render(){const ae=document.activeElement;const fid=ae&&ae.id,sel=ae&&'s
   pomoPaint()}
 
 function renderTop(){const v=S.view;const tabs=[['day','روز'],['week','هفته'],['month','ماه'],['plan','پلنر'],['stats','آمار']];
-  if($('#top').dataset.built!==S.settings.title+v+INST.k()){
+  if($('#top').dataset.built!==S.settings.title+v+INST.k()+(syncCfg()?'S':'')){
   $('#top').innerHTML=`<div class="brand"><div class="mark">${esc((S.settings.title||'ب').trim()[0]||'ب')}</div><h1>${esc(S.settings.title)}</h1></div>
    <div class="search"><input id="q" type="search" placeholder="جستجوی کارها" autocomplete="off" aria-label="جستجوی کارها">${I.search}<div class="sres" id="sres" hidden></div></div>
    <nav class="tabs" aria-label="نما">${tabs.map(([k,l])=>`<button data-act="view" data-v="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</nav>
    ${canInstall()?`<button class="btn sm inst" data-act="install" title="نصب روی این دستگاه">${I.dl}نصب</button>`:''}
+   ${syncBtnHtml()}
    <button class="iconbtn" data-act="pushOpen" title="یادآورها" aria-label="یادآورها">${I.bell}</button>
    <button class="iconbtn" data-act="settings" title="تنظیمات" aria-label="تنظیمات">${I.gear}</button>`;
-  $('#top').dataset.built=S.settings.title+v+INST.k();$('#q').value=S.q}}
+  $('#top').dataset.built=S.settings.title+v+INST.k()+(syncCfg()?'S':'');$('#q').value=S.q}}
 
 function renderBanner(){const has=S.sample&&Object.values(S.B).some(b=>b.tasks.some(t=>t.sample));
   $('#banner').innerHTML=has?`<div class="banner"><p>کارهایی که برچسب «نمونه» دارند فقط برای آشنایی‌اند. برنامه‌ی خودت را اضافه کن؛ همه‌چیز خودکار ذخیره می‌شود.</p><button class="btn sm" data-act="clearSample">حذف نمونه‌ها</button><button class="btn sm ghost" data-act="settings" data-tab="general">شخصی‌سازی</button></div>`:backupNudge()}
@@ -783,7 +789,7 @@ async function saveEditor(){readEditor();const t=edit.t;if(!t.title){$('#e-title
 /* ---------- settings ---------- */
 let stab='general',confirmReset=false,exportText='';
 function openSettings(tab){stab=tab||stab;confirmReset=false;exportText='';drawSettings();$('#setDlg').showModal()}
-function drawSettings(){const st=S.settings;const tabs=[['general','عمومی'],['look','ظاهر'],['cats','دسته‌ها'],['habits','عادت‌ها'],['routines','کارهای تکراری'],['pomo','تمرکز'],['remind','یادآور'],['cal','تقویم گوشی'],['app','نصب و اعلان'],['data','داده‌ها']];
+function drawSettings(){const st=S.settings;const tabs=[['general','عمومی'],['look','ظاهر'],['cats','دسته‌ها'],['habits','عادت‌ها'],['routines','کارهای تکراری'],['pomo','تمرکز'],['remind','یادآور'],['sync','هم‌گام‌سازی'],['cal','تقویم گوشی'],['app','نصب و اعلان'],['data','داده‌ها']];
   const yes=(k,l)=>`<label class="toggle"><span>${l}</span><input type="checkbox" data-k="${k}" data-t="bool" ${get(k)?'checked':''}></label>`;
   let body='';
   if(stab==='general')body=`<label class="fld"><span>نام برنامه‌ریز</span><input id="s-title" data-k="title" value="${esc(st.title)}"></label>
@@ -811,12 +817,13 @@ function drawSettings(){const st=S.settings;const tabs=[['general','عمومی']
    <div class="fld"><span>زمان پیش‌فرض یادآور</span><div class="seg">${[0,5,10,15,30,60].map(v=>`<button type="button" data-act="sset" data-k="remind.before" data-v="${v}" data-t="num" aria-pressed="${st.remind.before===v}">${remLabel(v)}</button>`).join('')}</div></div>
    ${yes('remind.sound','پخش صدا هنگام یادآوری')}
    <p class="muted" style="margin:0">یادآور برای هر کار، کار تکراری یا کلاسی که ساعت شروع دارد، در همان زمان داخل برنامه نشان داده می‌شود و اگر برنامه در پس‌زمینه باشد و اعلان را فعال کرده باشی، اعلان هم می‌آید. برای یادآوری حتی وقتی برنامه بسته است، از «تقویم گوشی» استفاده کن. برای هر کار جداگانه هم می‌شود زمان یادآور را در پنجره‌ی ویرایش عوض کرد. مرورگرها صدا را فقط بعد از اولین کلیک روی صفحه پخش می‌کنند.</p>`;
-  if(stab==='data')body=`<p class="muted" style="margin:0">${S.mode==='db'?'برنامه‌ات در حساب Claude تو ذخیره می‌شود و فقط خودت آن را می‌بینی؛ روی هر دستگاهی که این صفحه را باز کنی در دسترس است.':'برنامه‌ات فقط روی همین دستگاه ذخیره می‌شود و به اینترنت نیازی ندارد. برای انتقال به دستگاه دیگر، اینجا فایل پشتیبان بگیر و در دستگاه دیگر «بازگردانی از فایل» را بزن. فایل پشتیبانی که از نسخه‌ی Claude گرفته‌ای هم همین‌جا وارد می‌شود.'+(lsGet('lastBackup')?' آخرین پشتیبان: '+jlabel(iso(new Date(lsGet('lastBackup'))))+'.':'')}</p>
+  if(stab==='data')body=`<p class="muted" style="margin:0">${S.mode==='db'?'برنامه‌ات در حساب Claude تو ذخیره می‌شود و فقط خودت آن را می‌بینی؛ روی هر دستگاهی که این صفحه را باز کنی در دسترس است.':'برنامه‌ات فقط روی همین دستگاه ذخیره می‌شود و به اینترنت نیازی ندارد. برای انتقال به دستگاه دیگر، اینجا فایل پشتیبان بگیر و در دستگاه دیگر «بازگردانی از فایل» را بزن. فایل پشتیبانی که از نسخه‌ی Claude گرفته‌ای هم همین‌جا وارد می‌شود.'+(lsGet('lastBackup')?' آخرین پشتیبان: '+jlabel(iso(new Date(lsGet('lastBackup'))))+'.':'')+(SY.user?' چون وارد حساب هم‌گام‌سازی شده‌ای، یک نسخه هم در حسابت هست و «پاک کردن همه‌ی داده‌ها» آن را هم پاک می‌کند.':'')}</p>
    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="export">گرفتن فایل پشتیبان (JSON)</button><label class="btn" style="cursor:pointer">بازگردانی از فایل<input type="file" id="imp" accept=".json,application/json" class="sr"></label>${S.sample?'<button type="button" class="btn" data-act="clearSample">حذف داده‌های نمونه</button>':''}</div>
    ${exportText?`<label class="fld"><span>متن پشتیبان را کپی کن و جایی نگه دار</span><textarea id="exptxt" readonly style="min-height:120px;direction:ltr">${esc(exportText)}</textarea></label><button type="button" class="btn sm" data-act="copyExp">کپی متن</button>`:''}
    <hr style="border:0;border-top:1px solid var(--line);width:100%">
    <button type="button" class="btn danger" data-act="resetAll">${I.trash}${confirmReset?'برای پاک شدن همه‌چیز دوباره بزن':'پاک کردن همه‌ی داده‌ها'}</button>`;
   if(stab==='app'||stab==='cal')body=pwaTab(stab);
+  if(stab==='sync')body=syncTab();
   $('#setDlg').innerHTML=`<div class="dlg"><header><h2>تنظیمات و شخصی‌سازی</h2><button type="button" class="iconbtn" data-act="closeSet" aria-label="بستن">${I.x}</button></header>
    <nav class="stabs">${tabs.map(([k,l])=>`<button type="button" data-act="stab" data-tab="${k}" aria-pressed="${stab===k}">${l}</button>`).join('')}</nav>
    <div class="body" id="sbody">${body}</div><footer><span class="grow muted" style="font-size:.85em">تغییرها خودکار ذخیره می‌شوند.</span><button type="button" class="btn pri" data-act="closeSet">تمام</button></footer></div>`;pwaAfterSettings(stab)}
@@ -999,7 +1006,7 @@ function pwaTab(t){const st=S.settings;
     <li>پیشنهاد: در Google Calendar اول یک تقویم جدا به اسم «برنامه‌ریز» بساز و فایل را در آن وارد کن؛ اگر بعداً برنامه عوض شد، آن تقویم را پاک کن و فایل تازه را وارد کن تا چیزی تکراری نشود.</li>
     <li>Google Calendar هنگام وارد کردن فایل، یادآورهای داخل آن را نادیده می‌گیرد و یادآور پیش‌فرض همان تقویم را می‌گذارد؛ تقویم آیفون و Outlook یادآورها را نگه می‌دارند.</li></ul></details>`}
   return ''}
-async function pwaAfterSettings(t){if(t!=='app')return;const el=$('#stInfo');if(!el)return;
+async function pwaAfterSettings(t){try{const at=document.querySelector('#setDlg .stabs [aria-pressed="true"]');if(at)at.scrollIntoView({block:'nearest',inline:'center'})}catch(e){}if(t!=='app')return;const el=$('#stInfo');if(!el)return;
   try{const p=navigator.storage&&navigator.storage.persisted?await navigator.storage.persisted():null;const est=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null;
     el.innerHTML=(p?'<span class="okline">داده‌ها محافظت‌شده‌اند و مرورگر خودکار پاکشان نمی‌کند.</span>':'داده‌ها روی همین دستگاه ذخیره می‌شوند.'+(isIOS&&!isStandalone()?' در آیفون اگر برنامه را به صفحه‌ی اصلی اضافه نکنی، Safari ممکن است بعد از چند هفته استفاده نکردن پاکشان کند.':''))+(est&&est.usage!=null?` <span class="muted num">(${fa(Math.max(1,Math.round(est.usage/1024)))} کیلوبایت)</span>`:'');
     const b=$('#persistBtn');if(b)b.hidden=!!p||!(navigator.storage&&navigator.storage.persist)}catch(e){el.textContent='داده‌ها روی همین دستگاه ذخیره می‌شوند.'}}
@@ -1010,8 +1017,9 @@ function openWelcome(){$('#infoDlg').innerHTML=`<div class="dlg welcome"><div cl
   <h2 style="text-align:center;font-family:var(--f-display);font-weight:400;font-size:28px">برنامه‌ریز درس و کار</h2>
   <ul class="steps"><li>کارهای روز و هفته با چک‌لیست، عادت‌ها و تایمر تمرکز</li><li>پلنر روزانه، مطالعه با مرور فاصله‌دار، هدف‌ها و برنامه‌ی ترم</li><li>همه‌چیز روی همین دستگاه ذخیره می‌شود و بدون اینترنت هم کار می‌کند</li></ul>
   <div class="nbox"><p>فایل پشتیبان داری؟ (از نسخه‌ی Claude یا دستگاه دیگر) همین حالا واردش کن تا برنامه‌ی ترم و کارهایت بیاید.</p><label class="btn pri" style="cursor:pointer;align-self:flex-start">${I.up}وارد کردن فایل پشتیبان<input type="file" id="wimp" accept=".json,application/json" class="sr"></label></div>
+  ${syncCfg()?`<div class="nbox"><p>روی دستگاه دیگری هم‌گام‌سازی را روشن کرده‌ای؟ با همان ایمیل و رمز وارد شو تا همه‌چیز خودکار بیاید.</p><button type="button" class="btn pri" style="align-self:flex-start" data-act="welcomeLogin">ورود به حسابم</button></div>`:''}
   </div><footer><span class="grow muted" style="font-size:.85em">نمونه‌ها را هر وقت خواستی با یک دکمه پاک کن.</span><button type="button" class="btn" data-act="welcomeStart">شروع با نمونه</button></footer></div>`;$('#infoDlg').showModal()}
-function backupNudge(){if(S.sample)return '';const last=lsGet('lastBackup')||0;const has=lsKeys().some(k=>/^w-/.test(k))||lsGet('term');if(!has)return '';const days=last?Math.floor((Date.now()-last)/86400000):null;
+function backupNudge(){if(S.sample||SY.user)return '';const last=lsGet('lastBackup')||0;const has=lsKeys().some(k=>/^w-/.test(k))||lsGet('term');if(!has)return '';const days=last?Math.floor((Date.now()-last)/86400000):null;
   if(days!=null&&days<14)return '';if(lsGet('nudgeSnooze')>Date.now())return '';
   return `<div class="banner"><p>${days==null?'هنوز از برنامه‌ات پشتیبان نگرفته‌ای.':'آخرین پشتیبان '+fa(days)+' روز پیش بوده.'} اطلاعات فقط روی همین دستگاه است؛ یک فایل پشتیبان نگه دار تا با عوض شدن یا پاک شدن گوشی از دست نرود.</p><button class="btn sm pri" data-act="export">گرفتن پشتیبان</button><button class="btn sm ghost" data-act="nudgeLater">بعداً</button></div>`}
 
@@ -1056,6 +1064,159 @@ function route(){const h=(location.hash||'').slice(1);if(!h)return;const m={day:
   try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}if(!r)return;S.view=r[0];if(r[1])S.ptab=r[1];S.cur=today();render();if(h==='new')setTimeout(()=>{const q=$('#qa');q&&q.focus()},80)}
 window.addEventListener('hashchange',route);
 document.addEventListener('click',function once(){document.removeEventListener('click',once,true);try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>{if(!p)navigator.storage.persist()})}catch(e){}},true);
+
+/* ---------- cloud sync (Supabase, email + password) ---------- */
+const SYNC_TABLE='planner_docs';
+const syncCfg=()=>{const c=window.PLANNER_SYNC||{};if(c.url&&c.key)return{url:String(c.url).trim().replace(/\/+$/,''),key:String(c.key).trim(),baked:true};const l=lsGet('syncCfg');return l&&l.url&&l.key?l:null};
+const SY={sb:null,user:null,state:'off',err:'',chan:null,pushT:null,busy:false,fail:0,lastOk:lsGet('syncLastOk')||0,pendingRender:false,form:{email:'',msg:'',busy:false},
+  meta:Object.assign({uid:null,last:null,dirty:{},seen:{},resetSeen:0},lsGet('__sync')||{})};
+const syncable=k=>k==='settings'||/^w-\d{4}-\d{2}-\d{2}$/.test(k)||DOCS.includes(k);
+const tsMs=s=>Date.parse(String(s||'').replace(/(\.\d{3})\d+/,'$1'));
+function syncSaveMeta(){lsSet('__sync',SY.meta)}
+function syncMark(k){if(!syncable(k))return;SY.meta.dirty[k]=Date.now();syncSaveMeta();if(SY.user){clearTimeout(SY.pushT);SY.pushT=setTimeout(syncPush,1200)}}
+const SYNC_ICON={
+ ok:'<svg class="i" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M9.5 13.8l1.9 1.9 3.6-3.6"/></svg>',
+ busy:'<svg class="i spin" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5"/></svg>',
+ offline:'<svg class="i" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M4 4l16 16"/></svg>',
+ error:'<svg class="i" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 9.6 4.5 4.5 0 0 0 7 18.5z"/><path d="M12 10.5v3M12 16.2v.1"/></svg>',
+ out:'<svg class="i" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 9.6 4.5 4.5 0 0 0 7 18.5z"/></svg>'};
+const syncLabel=()=>({ok:'هم‌گام است',busy:'در حال هم‌گام‌سازی…',offline:'بدون اینترنت؛ تغییرها بعداً ارسال می‌شوند',error:'هم‌گام‌سازی انجام نشد',loggedout:'وارد حساب نشده‌ای',off:'هم‌گام‌سازی خاموش است',init:'در حال اتصال…'})[SY.state]||'';
+function syncBtnHtml(){if(!syncCfg())return '';const st=SY.state==='loggedout'||SY.state==='off'||SY.state==='init'?'out':SY.state;
+  return `<button class="iconbtn syncbtn s-${st}" id="syncBtn" data-act="settings" data-tab="sync" title="${syncLabel()}" aria-label="هم‌گام‌سازی: ${syncLabel()}">${SYNC_ICON[st]||SYNC_ICON.out}</button>`}
+function paintSync(){const b=$('#syncBtn');if(b)b.outerHTML=syncBtnHtml();const s=$('#syncStatus');if(s)s.innerHTML=syncStatusHtml()}
+function setSyncState(s,err){SY.state=s;SY.err=err||'';paintSync()}
+function syncStatusHtml(){const cls=SY.state==='ok'?'okline':SY.state==='error'?'perr':'';
+  return `<span class="${cls}">${syncLabel()}</span>${SY.err?` <span class="muted">(${esc(SY.err)})</span>`:''}${SY.lastOk?`<br><small class="muted num">آخرین هم‌گام‌سازی موفق: ${fmtAt(SY.lastOk)}</small>`:''}${Object.keys(SY.meta.dirty).length&&SY.user?`<br><small class="muted num">${fa(Object.keys(SY.meta.dirty).length)} بخش منتظر ارسال</small>`:''}`}
+const isNetErr=e=>{const m=String(e&&(e.message||e)||'');return !navigator.onLine||/Failed to fetch|NetworkError|Load failed|network|fetch|timeout|ECONN|status of 0/i.test(m)||(e&&(e.status===0||e.name==='AuthRetryableFetchError'))};
+function syncErrText(e){const c=e&&(e.code||'');const m=String(e&&e.message||'');
+  if(c==='invalid_credentials'||/Invalid login credentials/i.test(m))return 'ایمیل یا رمز درست نیست.';
+  if(c==='user_already_exists'||/already registered|already exists/i.test(m))return 'با این ایمیل قبلاً حساب ساخته شده؛ «ورود» را بزن.';
+  if(c==='weak_password'||/Password should be/i.test(m))return 'رمز باید دست‌کم ۶ کاراکتر باشد.';
+  if(c==='email_not_confirmed'||/Email not confirmed/i.test(m))return 'ایمیل هنوز تأیید نشده؛ لینک تأیید را در ایمیلت بزن، یا در Supabase گزینه‌ی Confirm email را خاموش کن.';
+  if(c==='signup_disabled'||/Signups not allowed|signups are disabled/i.test(m))return 'ساختن حساب تازه در سرور بسته است؛ اگر قبلاً حساب ساخته‌ای «ورود» را بزن.';
+  if(c==='email_address_invalid'||/invalid.*email|email.*invalid/i.test(m))return 'ایمیل معتبر نیست.';
+  if(c==='over_request_rate_limit'||c==='over_email_send_rate_limit'||/rate limit/i.test(m))return 'درخواست‌ها زیاد شد؛ چند دقیقه بعد دوباره امتحان کن.';
+  if(c==='42P01'||/relation .* does not exist|Could not find the table/i.test(m))return 'جدول planner_docs در Supabase ساخته نشده؛ کد SQL راهنما را اجرا کن.';
+  if(c==='42501'||/row-level security|permission denied/i.test(m))return 'سرور اجازه‌ی ذخیره نداد؛ کد SQL راهنما را دوباره اجرا کن.';
+  if(/Invalid API key|No API key|JWT|apikey/i.test(m))return 'کلید Supabase درست نیست؛ نشانی و کلید را دوباره بررسی کن.';
+  if(/paused|project.*inactive/i.test(m))return 'پروژه‌ی Supabase متوقف شده؛ در داشبورد Supabase آن را Restore کن.';
+  if(isNetErr(e))return 'اتصال به سرور برقرار نشد؛ اینترنت یا فیلترشکن را بررسی کن.';
+  return m.slice(0,140)||'خطای ناشناخته'}
+function loadSupabase(){if(window.supabase&&window.supabase.createClient)return Promise.resolve();if(SY.loading)return SY.loading;
+  return SY.loading=new Promise((res,rej)=>{const s=document.createElement('script');s.src='vendor/supabase.js';s.async=true;s.onload=()=>res();s.onerror=()=>{SY.loading=null;rej(new Error('lib'))};document.head.appendChild(s)})}
+async function syncInit(){const c=syncCfg();if(!c){setSyncState('off');return}
+  setSyncState('init');try{await loadSupabase()}catch(e){setSyncState('error','کتابخانه‌ی هم‌گام‌سازی بار نشد');return}
+  try{SY.sb=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'pl1-auth'}})}catch(e){setSyncState('error','نشانی یا کلید Supabase درست نیست');return}
+  SY.sb.auth.onAuthStateChange((ev,session)=>{const u=session&&session.user||null;const prev=SY.user;SY.user=u;
+    if(!u){syncStop();setSyncState('loggedout');if($('#setDlg').open&&stab==='sync')drawSettings();return}
+    if(!prev||prev.id!==u.id)setTimeout(syncStart,0)});
+  try{const {data}=await SY.sb.auth.getSession();if(!data||!data.session)setSyncState('loggedout')}catch(e){setSyncState('loggedout')}}
+async function fetchAll(since){const out=[];for(let from=0;;from+=500){let q=SY.sb.from(SYNC_TABLE).select('key,data,updated_at').eq('user_id',SY.user.id);if(since)q=q.gt('updated_at',since);
+  const {data,error}=await q.order('updated_at',{ascending:true}).range(from,from+499);if(error)throw error;out.push(...(data||[]));if(!data||data.length<500)break}return out}
+function localSyncKeys(){return lsKeys().filter(syncable).filter(k=>lsGet(k)!=null)}
+function dropSamples(){if(!S.sample)return;S.sample=false;for(const k of Object.keys(S.B))if(!lsGet(k))delete S.B[k];DOCS.forEach(k=>{if(!lsGet(k))S.D[k]=normDoc(k,{})})}
+function applyRow(r,force){const k=r.key;
+  if(k==='__reset'){const at=r.data&&r.data.at||0;if(at>(SY.meta.resetSeen||0)){SY.meta.resetSeen=at;localSyncKeys().forEach(x=>lsDel(x));SY.meta.dirty={};SY.meta.seen={};reloadFromLocal()}return true}
+  if(!syncable(k)||r.data==null)return false;
+  if(!force){if(SY.meta.seen[k]===r.updated_at)return false;if(dirty.has(k))return false;const d=SY.meta.dirty[k];if(d&&d>tsMs(r.updated_at))return false}
+  delete SY.meta.dirty[k];SY.meta.seen[k]=r.updated_at;lsSet(k,r.data);dropSamples();
+  if(k==='settings'){S.settings=merge(defaults(),clone(r.data));settingsSaved=true;applyLook();schedPush()}
+  else if(DOCS.includes(k))S.D[k]=normDoc(k,clone(r.data));else S.B[k]=markL(normB(clone(r.data)));
+  return true}
+function reloadFromLocal(){flush();const s=lsGet('settings');S.settings=merge(defaults(),s||{});settingsSaved=!!s;S.sample=false;S.B={};DOCS.forEach(k=>{S.D[k]=normDoc(k,lsGet(k)||{})});applyLook();schedPush();requestRender(true)}
+function requestRender(force){const ae=document.activeElement;const typing=ae&&/INPUT|TEXTAREA/.test(ae.tagName)&&$('#main').contains(ae)&&String(ae.value||'').length>0&&ae.type!=='checkbox';
+  if(!force&&(typing||document.querySelector('dialog[open]'))){SY.pendingRender=true;return}SY.pendingRender=false;render()}
+document.addEventListener('input',e=>{if(SY.pendingRender&&e.target&&e.target.value==='')setTimeout(()=>requestRender(),50)});
+document.addEventListener('focusout',()=>{if(SY.pendingRender)setTimeout(()=>{const ae=document.activeElement;if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))&&!document.querySelector('dialog[open]'))requestRender(true)},150)});
+['setDlg','taskDlg','gDlg','infoDlg','pushDlg'].forEach(id=>{const d=document.getElementById(id);d&&d.addEventListener('close',()=>{if(SY.pendingRender)setTimeout(()=>requestRender(),50)})});
+function syncAskMerge(nRemote){return new Promise(res=>{SY.mergeRes=res;$('#infoDlg').innerHTML=`<div class="dlg"><header><h2>هم این دستگاه اطلاعات دارد، هم حسابت</h2></header><div class="body">
+  <p style="margin:0">در حسابت از قبل برنامه ذخیره شده است. کدام را نگه داریم؟</p>
+  <button type="button" class="btn pri choice" data-act="mergeRemote"><b>اطلاعات حساب را بیاور</b><small>برای وقتی که این دستگاه دوم است. بخش‌هایی که فقط روی این دستگاه هستند هم به حساب اضافه می‌شوند.</small></button>
+  <button type="button" class="btn choice" data-act="mergeLocal"><b>اطلاعات همین دستگاه را بفرست</b><small>جاهایی که هر دو دارند، نسخه‌ی این دستگاه جایگزین نسخه‌ی حساب می‌شود.</small></button>
+  </div></div>`;$('#infoDlg').showModal()})}
+async function syncStart(){if(!SY.user)return;setSyncState('busy');if($('#setDlg').open&&stab==='sync')drawSettings();
+  try{flush();
+    if(SY.meta.uid!==SY.user.id){const remote=await fetchAll(null);const rs=remote.filter(r=>r.key!=='__reset');
+      SY.meta={uid:SY.user.id,last:null,dirty:{},seen:{},resetSeen:Date.now()};
+      const local=localSyncKeys();const localReal=!!lsGet('settings');const now=Date.now();
+      if(!rs.length){if(localReal)local.forEach(k=>SY.meta.dirty[k]=now)}
+      else if(!localReal){local.forEach(k=>lsDel(k));rs.forEach(r=>applyRow(r,true));reloadFromLocal()}
+      else{const choice=await syncAskMerge(rs.length);const rk=new Set(rs.map(r=>r.key));
+        if(choice==='remote'){rs.forEach(r=>applyRow(r,true));local.filter(k=>!rk.has(k)).forEach(k=>SY.meta.dirty[k]=now)}
+        else{local.forEach(k=>SY.meta.dirty[k]=now);rs.filter(r=>!local.includes(r.key)).forEach(r=>applyRow(r,true))}
+        reloadFromLocal()}
+      remote.forEach(r=>{if(!SY.meta.last||r.updated_at>SY.meta.last)SY.meta.last=r.updated_at});syncSaveMeta();
+      toast(rs.length?'برنامه‌ات از حساب آمد':'هم‌گام‌سازی روشن شد')}
+    else await syncPull();
+    syncSubscribe();await syncPush();if(SY.state==='busy')setSyncState('ok')}
+  catch(e){setSyncState(isNetErr(e)?'offline':'error',syncErrText(e));clearTimeout(SY.pullT);SY.pullT=setTimeout(syncStart,30000)}
+  if($('#setDlg').open&&stab==='sync')drawSettings()}
+async function syncPull(){if(!SY.user||!SY.sb)return;try{const rows=await fetchAll(SY.meta.last);let ch=false;
+    for(const r of rows){if(applyRow(r,false))ch=true;if(!SY.meta.last||r.updated_at>SY.meta.last)SY.meta.last=r.updated_at}
+    syncSaveMeta();if(ch)requestRender();SY.lastOk=Date.now();lsSet('syncLastOk',SY.lastOk);if(SY.state!=='busy')setSyncState('ok')}
+  catch(e){setSyncState(isNetErr(e)?'offline':'error',syncErrText(e))}}
+async function syncPush(){if(!SY.user||!SY.sb||SY.busy)return;flush();const keys=Object.keys(SY.meta.dirty).filter(syncable);
+  if(!keys.length){if(SY.state==='busy'||SY.state==='offline')setSyncState('ok');return}
+  if(!navigator.onLine){setSyncState('offline');return}
+  SY.busy=true;setSyncState('busy');
+  try{for(let i=0;i<keys.length;i+=40){const part=keys.slice(i,i+40),stamps={},rows=[],dels=[];
+      part.forEach(k=>{stamps[k]=SY.meta.dirty[k];const v=lsGet(k);if(v==null)dels.push(k);else rows.push({user_id:SY.user.id,key:k,data:v,client_ts:new Date(stamps[k]).toISOString()})});
+      if(rows.length){const {data,error}=await SY.sb.from(SYNC_TABLE).upsert(rows,{onConflict:'user_id,key'}).select('key,updated_at');if(error)throw error;
+        (data||[]).forEach(r=>{SY.meta.seen[r.key]=r.updated_at;if(SY.meta.dirty[r.key]===stamps[r.key])delete SY.meta.dirty[r.key]})}
+      if(dels.length){const {error}=await SY.sb.from(SYNC_TABLE).delete().eq('user_id',SY.user.id).in('key',dels);if(error)throw error;dels.forEach(k=>{if(SY.meta.dirty[k]===stamps[k])delete SY.meta.dirty[k]})}}
+    SY.fail=0;SY.lastOk=Date.now();lsSet('syncLastOk',SY.lastOk);syncSaveMeta();setSyncState('ok')}
+  catch(e){SY.fail++;syncSaveMeta();setSyncState(isNetErr(e)?'offline':'error',syncErrText(e));clearTimeout(SY.pushT);SY.pushT=setTimeout(syncPush,Math.min(300000,5000*2**Math.min(SY.fail,6)))}
+  finally{SY.busy=false;if(SY.state==='ok'&&Object.keys(SY.meta.dirty).length){clearTimeout(SY.pushT);SY.pushT=setTimeout(syncPush,800)}}}
+function syncSubscribe(){if(SY.chan||!SY.user)return;const uid=SY.user.id;
+  SY.chan=SY.sb.channel('planner-'+uid).on('postgres_changes',{event:'*',schema:'public',table:SYNC_TABLE,filter:'user_id=eq.'+uid},p=>{const r=p&&p.new;if(!r||!r.key||r.user_id&&r.user_id!==uid)return;
+    if(applyRow(r,false))requestRender();if(!SY.meta.last||r.updated_at>SY.meta.last)SY.meta.last=r.updated_at;syncSaveMeta()}).subscribe(st=>{if(st==='SUBSCRIBED')syncPull()})}
+function syncStop(){clearTimeout(SY.pushT);clearTimeout(SY.pullT);if(SY.chan&&SY.sb){try{SY.sb.removeChannel(SY.chan)}catch(e){}}SY.chan=null}
+async function syncResetRemote(){if(!SY.user||!SY.sb)return;try{await SY.sb.from(SYNC_TABLE).delete().eq('user_id',SY.user.id);const at=Date.now();SY.meta.resetSeen=at;
+  await SY.sb.from(SYNC_TABLE).upsert([{user_id:SY.user.id,key:'__reset',data:{at}}],{onConflict:'user_id,key'});SY.meta.dirty={};SY.meta.seen={};syncSaveMeta()}catch(e){toast('پاک کردن اطلاعات حساب انجام نشد: '+syncErrText(e))}}
+async function syncAuth(kind){const email=($('#sy-email').value||'').trim(),pw=$('#sy-pass').value||'';SY.form.email=email;
+  if(!/^\S+@\S+\.\S+$/.test(email)){SY.form.msg='ایمیل را درست وارد کن.';drawSettings();return}
+  if(pw.length<6){SY.form.msg='رمز باید دست‌کم ۶ کاراکتر باشد.';drawSettings();return}
+  if(!SY.sb){await syncInit();if(!SY.sb){SY.form.msg=SY.err||'اتصال برقرار نشد.';drawSettings();return}}
+  SY.form.busy=true;SY.form.msg='';drawSettings();
+  try{const r=kind==='up'?await SY.sb.auth.signUp({email,password:pw}):await SY.sb.auth.signInWithPassword({email,password:pw});
+    if(r.error)throw r.error;if(kind==='up'&&!r.data.session){SY.form.msg='حساب ساخته شد، ولی سرور تأیید ایمیل می‌خواهد. لینک ایمیلت را بزن یا در Supabase گزینه‌ی Confirm email را خاموش کن، بعد «ورود» را بزن.'}
+    else SY.form.msg=''}
+  catch(e){SY.form.msg=syncErrText(e)}
+  SY.form.busy=false;drawSettings()}
+function syncTab(){const c=syncCfg();
+  if(!c)return `<p style="margin:0">با هم‌گام‌سازی، برنامه روی گوشی و کامپیوتر یکی می‌شود: روی هر دستگاه با یک ایمیل و رمز وارد می‌شوی و هر تغییر چند ثانیه بعد روی دستگاه دیگر هم دیده می‌شود.</p>
+   <p class="muted" style="margin:0;font-size:.88em">این نسخه هنوز به سرور هم‌گام‌سازی وصل نشده. نشانی پروژه و کلید عمومی Supabase را اینجا بچسبان (فقط یک بار روی هر دستگاه).</p>
+   <label class="fld"><span>نشانی پروژه (Project URL)</span><input id="sy-url" dir="ltr" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
+   <label class="fld"><span>کلید عمومی (publishable یا anon)</span><input id="sy-key" dir="ltr" placeholder="sb_publishable_..." autocomplete="off"></label>
+   <button type="button" class="btn pri" data-act="syncCfgSave">اتصال</button>`;
+  if(!SY.user)return `<p style="margin:0">با یک ایمیل و رمز وارد شو تا برنامه روی همه‌ی دستگاه‌هایت یکی شود. روی دستگاه اول «ساخت حساب» و روی بقیه «ورود» را بزن.</p>
+   <p id="syncStatus" style="margin:0">${syncStatusHtml()}</p>
+   <label class="fld"><span>ایمیل</span><input id="sy-email" type="email" dir="ltr" autocomplete="username" value="${esc(SY.form.email)}" placeholder="you@example.com"></label>
+   <label class="fld"><span>رمز (دست‌کم ۶ کاراکتر)</span><input id="sy-pass" type="password" dir="ltr" autocomplete="current-password"></label>
+   ${SY.form.msg?`<p class="perr" role="alert" style="margin:0">${esc(SY.form.msg)}</p>`:''}
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn pri" data-act="syncIn" ${SY.form.busy?'disabled':''}>${SY.form.busy?'صبر کن…':'ورود'}</button><button type="button" class="btn" data-act="syncUp" ${SY.form.busy?'disabled':''}>ساخت حساب</button></div>
+   <p class="muted" style="margin:0;font-size:.85em">رمز را جایی یادداشت کن؛ روی گوشی و کامپیوتر به همین ایمیل و رمز نیاز داری.${c.baked?'':' <button type="button" class="btn sm ghost" data-act="syncCfgClear">تغییر سرور</button>'}</p>`;
+  return `<p style="margin:0">وارد شده با <b dir="ltr">${esc(SY.user.email||'')}</b></p>
+   <p id="syncStatus" style="margin:0">${syncStatusHtml()}</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="syncNow">هم‌گام‌سازی الان</button><button type="button" class="btn danger" data-act="syncOut">خروج از حساب</button></div>
+   <p class="muted" style="margin:0;font-size:.85em">هر تغییر چند ثانیه بعد روی دستگاه‌های دیگر هم دیده می‌شود. بدون اینترنت هم کار کن؛ تغییرها بعداً خودکار ارسال می‌شوند. اگر روی دو دستگاه هم‌زمان همان روز یا همان بخش را بدون اینترنت تغییر بدهی، تغییر جدیدتر می‌ماند.</p>
+   <p class="muted" style="margin:0;font-size:.85em">سرویس رایگان Supabase اگر یک هفته اصلاً استفاده نشود، پروژه را متوقف می‌کند. در آن صورت در سایت Supabase وارد شو و Restore را بزن.</p>`}
+function syncClick(act){switch(act){
+  case 'syncIn':syncAuth('in');return true;case 'syncUp':syncAuth('up');return true;
+  case 'syncOut':(async()=>{if(SY.sb){await syncPush();await SY.sb.auth.signOut().catch(()=>{})}SY.user=null;syncStop();setSyncState('loggedout');drawSettings();toast('از حساب خارج شدی؛ اطلاعات روی این دستگاه می‌ماند')})();return true;
+  case 'syncNow':(async()=>{await syncPush();await syncPull();toast(SY.state==='ok'?'هم‌گام شد':syncLabel())})();return true;
+  case 'syncCfgSave':{const url=($('#sy-url').value||'').trim(),key=($('#sy-key').value||'').trim();if(!/^https:\/\/[^\s]+$/.test(url)||key.length<20){toast('نشانی یا کلید کامل نیست');return true}
+    lsSet('syncCfg',{url:url.replace(/\/+$/,''),key});SY.sb=null;syncInit().then(()=>drawSettings());($('#top').dataset.built='',renderTop());return true}
+  case 'syncCfgClear':lsDel('syncCfg');syncStop();SY.sb=null;SY.user=null;setSyncState('off');drawSettings();($('#top').dataset.built='',renderTop());return true;
+  case 'mergeRemote':case 'mergeLocal':$('#infoDlg').close();if(SY.mergeRes){const r=SY.mergeRes;SY.mergeRes=null;r(act==='mergeRemote'?'remote':'local')}return true;
+  case 'welcomeLogin':lsSet('welcomed',1);$('#infoDlg').close();openSettings('sync');return true;
+  }return false}
+window.addEventListener('online',()=>{if(SY.user){syncPush();syncPull()}});
+window.addEventListener('offline',()=>{if(SY.user)setSyncState('offline')});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SY.user){syncPull();syncPush()}else if(document.visibilityState==='hidden'&&SY.user){flush();syncPush()}});
+setInterval(()=>{if(SY.user&&document.visibilityState==='visible'&&navigator.onLine)syncPull()},120000);
+
+document.getElementById('infoDlg').addEventListener('cancel',e=>{if(SY.mergeRes)e.preventDefault()});
 
 /* ---------- toast ---------- */
 let tT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,2600)}
@@ -1328,7 +1489,7 @@ function planKey(e){const t=e.target;if(t.classList&&t.classList.contains('addto
 
 /* ---------- events ---------- */
 const app=$('#app');
-app.addEventListener('click',async e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act;if(planClick(act,a,e)||pwaClick(act,a))return;const row=a.closest('[data-id]');const id=row&&row.dataset.id,d=row&&row.dataset.date;
+app.addEventListener('click',async e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act;if(planClick(act,a,e)||pwaClick(act,a)||syncClick(act))return;const row=a.closest('[data-id]');const id=row&&row.dataset.id,d=row&&row.dataset.date;
   switch(act){
   case 'view':S.view=a.dataset.v;render();break;
   case 'shift':S.cur=addD(S.cur,+a.dataset.n);render();break;
@@ -1429,7 +1590,7 @@ function doImport(file){const r=new FileReader();r.onload=async()=>{try{const o=
   S.settings=merge(defaults(),o.settings);S.B={};for(const[k,b] of Object.entries(o.weeks||{})){if(/^w-\d{4}-\d{2}-\d{2}$/.test(k)){const nb=normB(b);markL(nb);S.B[k]=nb;markDirty(k)}}
   if(o.docs)DOCS.forEach(k=>{if(o.docs[k]){S.D[k]=normDoc(k,o.docs[k]);markDirty(k)}});
   S.sample=false;markDirty('settings');flush();applyLook();render();if($('#setDlg').open)drawSettings();schedPush();toast('پشتیبان بازگردانی شد')}catch(e){toast('این فایل پشتیبان این برنامه نیست یا خراب است.')}};r.readAsText(file)}
-async function resetAll(){const keys=new Set([...lsKeys(),...Object.keys(S.B),'settings',...DOCS]);
+async function resetAll(){await syncResetRemote();const keys=new Set([...lsKeys(),...Object.keys(S.B),'settings',...DOCS]);
   if(S.mode==='db'){try{const qs=await S.db.collection('data/users/'+S.uid).limit(1000).get();qs.docs.forEach(d=>keys.add(d.id))}catch(e){}for(const k of keys){try{await ref(k).delete()}catch(e){}}}
   keys.forEach(k=>lsDel(k));dirty.clear();S.settings=defaults();S.B={};S.D={};DOCS.forEach(k=>S.D[k]=normDoc(k,{}));S.sample=false;settingsSaved=false;confirmReset=false;$('#setDlg').close();applyLook();render();toast('همه‌ی داده‌ها پاک شد')}
 
@@ -1451,7 +1612,7 @@ async function bootDb(){if(!window.claude||!window.claude.use)return;let db=null
     if(settingsSaved){/* migrate this browser's data into the account */const ks=new Set([...lsKeys().filter(k=>k.startsWith('w-')),...Object.keys(S.B)]);for(const k of ks){if(!S.B[k]){const nb=normB(lsGet(k));markL(nb);S.B[k]=nb}dirty.add(k)}dirty.add('settings');flush()}
     else if(dirty.size)flush();
     if(Object.keys(dbDocs).length)render()}}
-bootLocal();applyLook();render();route();schedPush();if(!lsGet('settings')&&!lsGet('welcomed'))setTimeout(openWelcome,250);
+bootLocal();applyLook();render();route();schedPush();if(!lsGet('settings')&&!lsGet('welcomed'))setTimeout(openWelcome,250);syncInit();
 setInterval(()=>{if(S.view==='day'&&S.cur===today()&&!document.querySelector('dialog[open]')&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))render()},60000);
 document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&S.mode==='db'&&!dirty.size){for(const k of Object.keys(S.B)){try{const sn=await ref(k).get();if(sn.exists){const nb=normB(clone(sn.data()));markL(nb);S.B[k]=nb}}catch(e){}}render()}});
 const tl=()=>{const el=$('#tl');if(el&&S.cur===today()){const n=new Date();el.scrollTop=Math.max(0,((n.getHours()-S.settings.hours.from)*44)-100)}};tl();
